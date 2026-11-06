@@ -1,0 +1,20 @@
+#!/bin/zsh
+# Run Ruby code in a running SketchUp through claude_bridge.rb and print the result.
+#   skrun 'Sketchup.active_model.title'
+#   skrun "$(cat script.rb)" 900      # second arg = timeout in seconds (default 600)
+# Exit code: 0 = OK, 1 = Ruby error, 2 = timeout (is SketchUp running with the bridge?)
+set -u
+B="${SKETCHUP_BRIDGE_DIR:-$HOME/.sketchup-bridge}"
+[ -d "$B" ] || { echo "bridge folder $B not found — start SketchUp with claude_bridge.rb" >&2; exit 2; }
+rm -f "$B/out.txt"
+printf '%s' "$1" > "$B/cmd.rb.tmp" && mv "$B/cmd.rb.tmp" "$B/cmd.rb"
+limit=$(( ${2:-600} * 10 ))
+for (( i = 0; i < limit; i++ )); do
+  if [ -f "$B/out.txt" ]; then
+    out=$(cat "$B/out.txt"); print -r -- "$out"
+    [[ "$out" == OK:* ]] && exit 0 || exit 1
+  fi
+  sleep 0.1
+done
+rm -f "$B/cmd.rb"
+echo "TIMEOUT: SketchUp did not answer" >&2; exit 2
